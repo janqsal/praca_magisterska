@@ -1,4 +1,4 @@
-# praca_magisterska
+# Konspekt
 	1. Opis problemu
 		Praca polegać będzie na przeprowadzeniu detekcji anomalii na podstawie lokalizacji opublikowanych tweetów w czasie rzeczywistym.
     Po wykryciu ponadprzeciętnej liczby tweetów z danego miejsca przy użyciu NLP z biblioteki Transformers zostanie przeprowadzana próba 
