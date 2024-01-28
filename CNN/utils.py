@@ -119,7 +119,7 @@ def plot_confusion_matrix_percent(cm, classes, title='Confusion Matrix (%)', fig
     plt.show()
 
 
-def make_classification_report(ds, model):
+def make_classification_report(ds, model, model_name):
     y_true = []
     y_pred = []
     for images, labels in ds.as_numpy_iterator():
@@ -129,7 +129,10 @@ def make_classification_report(ds, model):
         y_pred.extend(y_pred_classes)
 
     y_true_classes = [np.argmax(i) for i in y_true]
-    report = classification_report(y_true_classes, y_pred)
+    report = classification_report(y_true_classes, y_pred, output_dict=True)
+
+    print(f"Raport klasyfikacji dla {model_name}:")
+    print(classification_report(y_true_classes, y_pred))
 
     return report
 
@@ -170,3 +173,32 @@ def show_loss_accuracy_plots(history):
     plt.tight_layout
     plt.show
 
+
+def find_best_model(models, ds):
+    best_scores = {metric: 0 for metric in ['precision', 'recall', 'f1-score', 'accuracy']}
+    best_model_names = {metric: None for metric in ['precision', 'recall', 'f1-score', 'accuracy']}
+    metrics_translation = {
+        'precision': 'precyzja',
+        'recall': 'pełność',
+        'f1-score': 'wynik F1',
+        'accuracy': 'dokładność'
+    }
+
+    for model_name, model in models.items():
+        report = make_classification_report(ds, model, model_name)
+
+        for metric in best_scores.keys():
+            if metric == 'accuracy':
+                score = report['accuracy']
+            else:
+                score = np.mean([report[label][metric] for label in report if
+                                 label not in ['accuracy', 'macro avg', 'weighted avg']])
+
+            if score > best_scores[metric]:
+                best_scores[metric] = score
+                best_model_names[metric] = model_name
+
+    best_models_pl = {metrics_translation[metric]: (best_model_names[metric], best_scores[metric]) for metric in
+                      best_scores}
+
+    return best_models_pl

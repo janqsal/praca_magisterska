@@ -187,9 +187,17 @@ def VizGradCAM(model, image, interpolant=0.5, plot_results=True):
     plt.rcParams["figure.dpi"] = 100
 
     if plot_results == True:
-        plt.imshow(
-            np.uint8(original_img * interpolant + cvt_heatmap * (1 - interpolant))
-        )
+        # Display the original image and GradCAM side by side
+        fig, axs = plt.subplots(1, 2, figsize=(12, 4))
+        axs[0].imshow(original_img)
+        axs[0].axis('off')
+        axs[0].set_title('Original Image')
+
+        axs[1].imshow(np.uint8(original_img * interpolant + cvt_heatmap * (1 - interpolant)))
+        axs[1].axis('off')
+        axs[1].set_title('GradCAM')
+
+        plt.show()
     else:
         return cvt_heatmap
 
