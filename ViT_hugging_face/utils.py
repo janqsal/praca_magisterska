@@ -1,4 +1,5 @@
 import os
+import time
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -12,7 +13,7 @@ import torchvision.transforms.functional as TF
 from utils import *
 from grad_cam import *
 
-def plot_confusion_matrix_percent(cm, classes, title='Confusion Matrix (%)', figsize=(10, 8)):
+def plot_confusion_matrix_percent(cm, classes, title='Macierz pomyłek (%)', figsize=(10, 8)):
     cm_percent = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
     plt.figure(figsize=figsize)
     plt.imshow(cm_percent, interpolation='nearest', cmap=plt.cm.Blues)
@@ -37,13 +38,13 @@ def plot_confusion_matrix_percent(cm, classes, title='Confusion Matrix (%)', fig
                  zorder=5)  # Ustawienie tekstu nad siatką (z-index)
 
     plt.tight_layout()
-    plt.ylabel('True label')
-    plt.xlabel('Predicted label')
+    plt.ylabel('Faktyczne etykiety')
+    plt.xlabel('Przewidziane etykiety')
     plt.show()
 
 
 def get_predictions_and_labels(model, data_loader, device):
-    model.eval()  # Ustawienie modelu w tryb ewaluacji
+    model.eval()
     all_predictions = []
     all_labels = []
 
@@ -120,7 +121,6 @@ def show_loss_accuracy_plots(history):
 
 
 def train_and_validate(model, train_loader, valid_loader, criterion, optimizer, scheduler, num_epochs, device, save_path, model_name):
-    # Inicjalizacja list do przechowywania metryk
     history = {
         "train_loss": [],
         "train_accuracy": [],
@@ -130,8 +130,11 @@ def train_and_validate(model, train_loader, valid_loader, criterion, optimizer, 
     best_validation_accuracy = 0.0
     best_model = None
 
+    start_time = time.time()
+
     for epoch in range(num_epochs):
-        # Trening
+        epoch_start_time = time.time()
+
         model.train()
         running_loss = 0.0
         correct_train = 0
@@ -156,7 +159,6 @@ def train_and_validate(model, train_loader, valid_loader, criterion, optimizer, 
         history['train_loss'].append(train_loss)
         history['train_accuracy'].append(train_accuracy)
 
-        # Walidacja
         model.eval()
         val_running_loss = 0.0
         correct_val = 0
@@ -183,15 +185,19 @@ def train_and_validate(model, train_loader, valid_loader, criterion, optimizer, 
             torch.save(best_model, best_model_path)
             print(f"Najlepszy model został zapisany do {best_model_path}")
 
-        # Wyświetlanie metryk
+        epoch_end_time = time.time()
+        epoch_duration = epoch_end_time - epoch_start_time
         print(f"Epoch [{epoch + 1}/{num_epochs}] "
               f"Train Loss: {train_loss:.4f}, Train Accuracy: {train_accuracy:.2f}% "
-              f"Val Loss: {val_loss:.4f}, Val Accuracy: {val_accuracy:.2f}%")
+              f"Val Loss: {val_loss:.4f}, Val Accuracy: {val_accuracy:.2f}% "
+              f"Czas trwania epoki: {epoch_duration:.2f}s")
 
-        # Dostosowanie szybkości uczenia się
         scheduler.step()
 
-    # Ładowanie najlepszego modelu przed zwróceniem
+    end_time = time.time()
+    total_training_time = end_time - start_time
+    print(f"Całkowity czas treningu: {total_training_time:.2f}s")
+
     if best_model is not None:
         model.load_state_dict(best_model)
 

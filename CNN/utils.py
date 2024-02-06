@@ -22,14 +22,11 @@ def plot_class_distribution_seaborn(class_counts, title, dataset_size):
     percentages = 100 * counts / dataset_size
     data = {'Klasa': labels, 'Procent': percentages}
 
-    # Tworzenie DataFrame
     df = pd.DataFrame(data)
 
-    # Tworzenie wykresu
     plt.figure(figsize=(10, 6))
     splot = sns.barplot(x="Klasa", y="Procent", data=df, palette="viridis")
 
-    # Dodanie etykiet z liczbą instancji (jako liczby całkowite)
     for p in splot.patches:
         splot.annotate(format(int(p.get_height() * dataset_size / 100), 'd'),
                        (p.get_x() + p.get_width() / 2., p.get_height()),
@@ -37,7 +34,6 @@ def plot_class_distribution_seaborn(class_counts, title, dataset_size):
                        xytext = (0, 9),
                        textcoords = 'offset points')
 
-    # Dodanie tytułu i etykiet osi
     plt.title(title)
     plt.xticks(rotation=45)
     plt.show()
@@ -77,7 +73,7 @@ def get_predictions_and_labels(model, dataset):
 
     return all_predictions, all_labels
 
-def plot_confusion_matrix(cm, classes, title='Confusion Matrix', figsize=(10, 8)):
+def plot_confusion_matrix(cm, classes, title='Macierz pomyłek', figsize=(10, 8)):
     plt.figure(figsize=figsize)
     plt.imshow(cm, interpolation='nearest', cmap=plt.cm.Blues)
     plt.title(title)
@@ -93,8 +89,8 @@ def plot_confusion_matrix(cm, classes, title='Confusion Matrix', figsize=(10, 8)
                  color="white" if cm[i, j] > thresh else "black")
 
     plt.tight_layout()
-    plt.ylabel('True label')
-    plt.xlabel('Predicted label')
+    plt.ylabel('Faktyczne etykiety')
+    plt.xlabel('Przewidziane etykiety')
     plt.show()
 
 def plot_confusion_matrix_percent(cm, classes, title='Confusion Matrix (%)', figsize=(10, 8)):
@@ -114,8 +110,8 @@ def plot_confusion_matrix_percent(cm, classes, title='Confusion Matrix (%)', fig
                  color="white" if cm_percent[i, j] > thresh else "black")
 
     plt.tight_layout()
-    plt.ylabel('True label')
-    plt.xlabel('Predicted label')
+    plt.ylabel('Faktyczne etykiety')
+    plt.xlabel('Przewidziane etykiety')
     plt.show()
 
 

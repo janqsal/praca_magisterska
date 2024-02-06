@@ -16,9 +16,6 @@ import io
 from PIL import Image as PILImage
 
 
-""" Model wrapper to return a tensor"""
-
-
 class HuggingfaceToTensorModelWrapper(torch.nn.Module):
     def __init__(self, model):
         super(HuggingfaceToTensorModelWrapper, self).__init__()
@@ -97,8 +94,7 @@ def reshape_transform_vit_huggingface(x, img_size=224, patch_size=16):
     activations = activations.transpose(2, 3).transpose(1, 2)
     return activations
 
-
-def display_images_with_gradcam(model, dataset, reshape_transform, num_classes, image_size=(224, 224),
+def display_images_with_gradcam(model, dataset, reshape_transform, num_classes, method, image_size=(224, 224),
                                 custom_labels=None):
     # Automatyczne określenie warstwy docelowej dla Grad-CAM
     target_layer_gradcam = model.vit.encoder.layer[-2].output
@@ -128,23 +124,22 @@ def display_images_with_gradcam(model, dataset, reshape_transform, num_classes, 
                                                 targets_for_gradcam=targets_for_gradcam,
                                                 input_tensor=tensor_resized,
                                                 input_image=image_resized,
-                                                reshape_transform=reshape_transform)
+                                                reshape_transform=reshape_transform,
+                                                method=method)
 
-        # Stworzenie bufora bajtowego dla obrazu z Grad-CAM
         buffer_grad_cam = io.BytesIO()
         PILImage.fromarray(grad_cam_result).save(buffer_grad_cam, format='PNG')
         buffer_grad_cam.seek(0)
 
-        # Wyświetlenie oryginalnego obrazu i obrazu z Grad-CAM
         display_label = custom_labels[label] if custom_labels else label
         print(f"Label: {display_label}")
-        fig, ax = plt.subplots(1, 2, figsize=(10, 5))  # Stworzenie podziału na 2 kolumny
-        ax[0].imshow(image_resized)  # Wyświetlenie oryginalnego obrazu
-        ax[0].axis('off')  # Wyłączenie osi
+        fig, ax = plt.subplots(1, 2, figsize=(10, 5))
+        ax[0].imshow(image_resized)
+        ax[0].axis('off')
         ax[0].set_title('Original Image')
 
-        ax[1].imshow(PILImage.open(buffer_grad_cam))  # Wyświetlenie obrazu z Grad-CAM
-        ax[1].axis('off')  # Wyłączenie osi
-        ax[1].set_title('Grad-CAM')
+        ax[1].imshow(PILImage.open(buffer_grad_cam))
+        ax[1].axis('off')
+        ax[1].set_title(f'{method}')
 
         plt.show()

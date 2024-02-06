@@ -183,15 +183,13 @@ def VizGradCAM(model, image, interpolant=0.5, plot_results=True):
 
     cvt_heatmap = cv2.cvtColor(heatmap, cv2.COLOR_BGR2RGB)
 
-    # Enlarge Plot
     plt.rcParams["figure.dpi"] = 100
 
     if plot_results == True:
-        # Display the original image and GradCAM side by side
         fig, axs = plt.subplots(1, 2, figsize=(12, 4))
         axs[0].imshow(original_img)
         axs[0].axis('off')
-        axs[0].set_title('Original Image')
+        axs[0].set_title('Pierwotny obraz')
 
         axs[1].imshow(np.uint8(original_img * interpolant + cvt_heatmap * (1 - interpolant)))
         axs[1].axis('off')
