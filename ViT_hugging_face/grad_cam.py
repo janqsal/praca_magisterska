@@ -3,7 +3,7 @@ warnings.filterwarnings('ignore')
 import random
 from torchvision import transforms
 from datasets import load_dataset
-from pytorch_grad_cam import run_dff_on_image, GradCAM
+from pytorch_grad_cam import run_dff_on_image, GradCAM, ScoreCAM
 from pytorch_grad_cam.utils.model_targets import ClassifierOutputTarget
 from pytorch_grad_cam.utils.image import show_cam_on_image
 from PIL import Image
@@ -94,12 +94,11 @@ def reshape_transform_vit_huggingface(x, img_size=224, patch_size=16):
     activations = activations.transpose(2, 3).transpose(1, 2)
     return activations
 
-def display_images_with_gradcam(model, dataset, reshape_transform, num_classes, method, image_size=(224, 224),
+def display_images_with_gradcam(model, dataset, reshape_transform, num_classes, method, method_name, image_size=(224, 224),
                                 custom_labels=None):
     # Automatyczne określenie warstwy docelowej dla Grad-CAM
     target_layer_gradcam = model.vit.encoder.layer[-2].output
 
-    # Iteracja przez klasy i wybór losowego obrazu dla każdej klasy
     for class_id in range(num_classes):
         # Zbierz wszystkie obrazy należące do aktualnej klasy
         class_images = [(image, label) for image, label in dataset if label == class_id]
@@ -136,10 +135,10 @@ def display_images_with_gradcam(model, dataset, reshape_transform, num_classes, 
         fig, ax = plt.subplots(1, 2, figsize=(10, 5))
         ax[0].imshow(image_resized)
         ax[0].axis('off')
-        ax[0].set_title('Original Image')
+        ax[0].set_title('Pierwotny obraz')
 
         ax[1].imshow(PILImage.open(buffer_grad_cam))
         ax[1].axis('off')
-        ax[1].set_title(f'{method}')
+        ax[1].set_title(f'{method_name}')
 
         plt.show()
