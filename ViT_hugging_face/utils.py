@@ -13,33 +13,37 @@ import torchvision.transforms.functional as TF
 from utils import *
 from grad_cam import *
 
-def plot_confusion_matrix_percent(cm, classes, title='Macierz pomyłek (%)', figsize=(10, 8)):
+def plot_confusion_matrix_percent(cm, classes, title='Confusion Matrix (%)', figsize=(10, 8)):
     cm_percent = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
-    plt.figure(figsize=figsize)
-    plt.imshow(cm_percent, interpolation='nearest', cmap=plt.cm.Blues)
+    fig, ax = plt.subplots(figsize=figsize)
+    im = ax.imshow(cm_percent, interpolation='nearest', cmap=plt.cm.Blues)
+
+    plt.colorbar(im, ax=ax)
+
     plt.title(title)
-    plt.colorbar()
     tick_marks = np.arange(len(classes))
-    plt.xticks(tick_marks, classes, rotation=45)
+    plt.xticks(tick_marks, classes, rotation=45, ha='right')
     plt.yticks(tick_marks, classes)
 
-    # Dodanie siatki
-    plt.grid(which='minor', color='gray', linestyle='-', linewidth=0.2)
-    plt.minorticks_on()
-
-    # Ustawienie linii siatki za tłem komórek (z-index)
-    plt.gca().set_zorder(3)
-
     thresh = cm_percent.max() / 2.
-    for i, j in itertools.product(range(cm_percent.shape[0]), range(cm_percent.shape[1])):
-        plt.text(j, i, f"{cm_percent[i, j]:.2%}",
-                 horizontalalignment="center",
-                 color="white" if cm_percent[i, j] > thresh else "black",
-                 zorder=5)  # Ustawienie tekstu nad siatką (z-index)
 
-    plt.tight_layout()
-    plt.ylabel('Faktyczne etykiety')
+    for i, j in itertools.product(range(cm_percent.shape[0]), range(cm_percent.shape[1])):
+        plt.text(j, i, "{:.1%}".format(cm_percent[i, j]),
+                 horizontalalignment="center",
+                 verticalalignment="center",
+                 color="white" if cm_percent[i, j] > thresh else "black")
+
+    for i in range(len(classes) + 1):
+        ax.axhline(i - 0.5, linestyle='-', color='black', linewidth=0.5)
+        ax.axvline(i - 0.5, linestyle='-', color='black', linewidth=0.5)
+
+    plt.ylabel('Prawdziwe etykiety')
     plt.xlabel('Przewidziane etykiety')
+
+    ax.set_aspect('equal')
+    plt.subplots_adjust(bottom=0.2)
+    plt.grid(False)
+    plt.tight_layout()
     plt.show()
 
 

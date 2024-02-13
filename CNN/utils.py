@@ -1,10 +1,12 @@
 import tensorflow as tf
+from keras import Model
 from sklearn.metrics import classification_report
 import itertools
 import seaborn as sns
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import os
 
 # Function to count class instances
 def count_classes(dataset, class_names):
@@ -93,27 +95,39 @@ def plot_confusion_matrix(cm, classes, title='Macierz pomyłek', figsize=(10, 8)
     plt.xlabel('Przewidziane etykiety')
     plt.show()
 
+
 def plot_confusion_matrix_percent(cm, classes, title='Confusion Matrix (%)', figsize=(10, 8)):
     cm_percent = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
-    plt.figure(figsize=figsize)
-    plt.imshow(cm_percent, interpolation='nearest', cmap=plt.cm.Blues)
+    fig, ax = plt.subplots(figsize=figsize)
+    im = ax.imshow(cm_percent, interpolation='nearest', cmap=plt.cm.Blues)
+
+    plt.colorbar(im, ax=ax)
+
     plt.title(title)
-    plt.colorbar()
     tick_marks = np.arange(len(classes))
-    plt.xticks(tick_marks, classes, rotation=45)
+    plt.xticks(tick_marks, classes, rotation=45, ha='right')
     plt.yticks(tick_marks, classes)
 
     thresh = cm_percent.max() / 2.
+
     for i, j in itertools.product(range(cm_percent.shape[0]), range(cm_percent.shape[1])):
-        plt.text(j, i, f"{cm_percent[i, j]:.2%}",
+        plt.text(j, i, "{:.1%}".format(cm_percent[i, j]),
                  horizontalalignment="center",
+                 verticalalignment="center",
                  color="white" if cm_percent[i, j] > thresh else "black")
 
-    plt.tight_layout()
-    plt.ylabel('Faktyczne etykiety')
-    plt.xlabel('Przewidziane etykiety')
-    plt.show()
+    for i in range(len(classes) + 1):
+        ax.axhline(i - 0.5, linestyle='-', color='black', linewidth=0.5)
+        ax.axvline(i - 0.5, linestyle='-', color='black', linewidth=0.5)
 
+    plt.ylabel('Prawdziwe etykiety')
+    plt.xlabel('Przewidziane etykiety')
+
+    ax.set_aspect('equal')
+    plt.subplots_adjust(bottom=0.2)
+    plt.grid(False)
+    plt.tight_layout()
+    plt.show()
 
 def make_classification_report(ds, model, model_name):
     y_true = []
@@ -198,3 +212,199 @@ def find_best_model(models, ds):
                       best_scores}
 
     return best_models_pl
+
+
+def save_models(folder_name, models):
+    base_path = r'C:\Users\Jan\SGH\magisterka\weights'
+
+    full_path = os.path.join(base_path, folder_name)
+    if not os.path.exists(full_path):
+        os.makedirs(full_path)
+
+    for i, model in enumerate(models, start=1):
+        model_path = os.path.join(full_path, f'model{i}.h5')
+        print(f"Zapisywanie {model_path}...")  # Informacja o zapisie
+        model.save(model_path)
+
+
+def display_feature_map_with_predictions_and_gradcam2(model, dataset, class_names, VizGradCAM_for_feature_map,
+                                                      target_class=None):
+    class_names_list = class_names.tolist() if isinstance(class_names, np.ndarray) else class_names
+    found = False
+
+    if target_class is not None and target_class in class_names_list:
+        target_class_index = class_names_list.index(target_class)
+
+        for images, labels in dataset.unbatch().as_numpy_iterator():
+            label_index = np.argmax(labels)
+            if label_index == target_class_index:
+                image = images.astype('uint8')
+                true_class = class_names[label_index]
+                found = True
+                break
+    if not found:
+        for images, labels in dataset.shuffle(1024).take(1).unbatch().as_numpy_iterator():
+            image = images.astype('uint8')
+            true_label_index = np.argmax(labels)
+            true_class = class_names[true_label_index]
+            break
+
+    if image is not None:
+        # Przygotowanie obrazu do predykcji
+        image_expanded = np.expand_dims(image, axis=0)
+        prediction_scores = model.predict(image_expanded)
+        predicted_index = np.argmax(prediction_scores[0])
+        predicted_class = class_names[predicted_index]
+
+        # Generowanie GradCAM
+        gradcam_img = VizGradCAM_for_feature_map(model, image, interpolant=0.5, plot_results=False)
+
+        # Wyświetlanie oryginalnego obrazu i GradCAM
+        plt.figure(figsize=(12, 4))
+        plt.subplot(1, 2, 1)
+        plt.imshow(image)
+        plt.title(f'Faktyczna klasa: {true_class}\nPrzewidziana: {predicted_class}')
+        plt.axis('off')
+
+        plt.subplot(1, 2, 2)
+        plt.imshow(gradcam_img)
+        plt.title('GradCAM')
+        plt.axis('off')
+        plt.show()
+
+        # Mapy cech dla warstw konwolucyjnych
+        conv_layers = [layer for layer in model.layers if isinstance(layer, tf.keras.layers.Conv2D)]
+        activation_model = Model(inputs=model.input, outputs=[layer.output for layer in conv_layers])
+        feature_maps = activation_model.predict(image_expanded)
+
+        # Wyświetlanie ograniczonej liczby map cech dla wszystkich filtrów
+        for layer_name, feature_map in zip([layer.name for layer in conv_layers], feature_maps):
+            n_filters = feature_map.shape[-1]
+            n_filters = min(n_filters, 64)  # Ograniczenie do maksymalnie 64 filtrów
+            n_cols = 8  # Filtry w wierszu
+            n_rows = n_filters // n_cols if n_filters % n_cols == 0 else (n_filters // n_cols) + 1
+
+            plt.figure(figsize=(n_cols * 2, n_rows * 2))
+            for i in range(n_filters):
+                ax = plt.subplot(n_rows, n_cols, i + 1)
+                plt.imshow(feature_map[0, :, :, i], cmap='viridis')
+                plt.axis('off')
+            plt.suptitle(f"Feature maps for layer {layer_name}", fontsize=16)
+            plt.subplots_adjust(wspace=0.1, hspace=0.1)
+            plt.show()
+    else:
+        print("Nie znaleziono obrazu z podanej klasy.")
+
+def display_feature_map_with_predictions_and_gradcam(model, dataset, class_names, VizGradCAM_for_feature_map,
+                                                     target_class=None):
+    class_names_list = class_names.tolist() if isinstance(class_names, np.ndarray) else class_names
+    found = False
+
+    if target_class is not None and target_class in class_names_list:
+        target_class_index = class_names_list.index(target_class)
+
+        for images, labels in dataset.unbatch().as_numpy_iterator():
+            label_index = np.argmax(labels)
+            if label_index == target_class_index:
+                image = images.astype('uint8')
+                true_class = class_names[label_index]
+                found = True
+                break
+    if not found:
+        for images, labels in dataset.shuffle(1024).take(1).unbatch().as_numpy_iterator():
+            image = images.astype('uint8')
+            true_label_index = np.argmax(labels)
+            true_class = class_names[true_label_index]
+            break
+
+    if image is not None:
+        # Przygotowanie obrazu do predykcji
+        image_expanded = np.expand_dims(image, axis=0)
+        prediction_scores = model.predict(image_expanded)
+        predicted_index = np.argmax(prediction_scores[0])
+        predicted_class = class_names[predicted_index]
+
+        # Generowanie GradCAM
+        gradcam_img = VizGradCAM_for_feature_map(model, image, interpolant=0.5, plot_results=False)
+
+        # Wyświetlanie oryginalnego obrazu, GradCAM i przewidywanej klasy
+        plt.figure(figsize=(12, 4))
+        plt.subplot(1, 2, 1)
+        plt.imshow(image)
+        plt.title(f'Faktyczna klasa: {true_class}\nPrzewidziana: {predicted_class}')
+        plt.axis('off')
+
+        plt.subplot(1, 2, 2)
+        plt.imshow(gradcam_img)
+        plt.title(f'GradCAM')
+        plt.axis('off')
+        plt.show()
+
+        # Mapy cech dla warstw konwolucyjnych
+        conv_layers = [layer for layer in model.layers if isinstance(layer, tf.keras.layers.Conv2D)]
+        activation_model = Model(inputs=model.input, outputs=[layer.output for layer in conv_layers])
+        feature_maps = activation_model.predict(image_expanded)
+
+        # Wyświetlanie map cech
+        num_layers = len(feature_maps)
+        cols = 3
+        rows = (num_layers + cols - 1) // cols
+        plt.figure(figsize=(cols * 3, rows * 3))
+        for i, feature_map in enumerate(feature_maps):
+            plt.subplot(rows, cols, i + 1)
+            plt.imshow(feature_map[0, :, :, 0], cmap='viridis')
+            plt.title(conv_layers[i].name)
+            plt.axis('off')
+        plt.tight_layout()
+        plt.show()
+    else:
+        print("Nie znaleziono obrazu z podanej klasy.")
+
+
+def classification_report_to_latex(report, class_names):
+    """parser do konwertowania raportu klasyfikacji z scikit-learn do kodu LaTeX"""
+    if isinstance(class_names, (list, np.ndarray)):
+        class_names_dict = {i: name for i, name in enumerate(class_names)}
+    else:
+        raise ValueError("class_names must be a list or a numpy array")
+
+    latex_code = """
+\\begin{table}[h]
+\\centering
+\\caption{Raport klasyfikacji dla modelu1}
+\\label{tab:classification_report}
+\\begin{tabular}{lcccc}
+\\toprule
+Klasy & Precyzja & Czułość & F1-score & Liczebność \\\\
+\\midrule
+"""
+    lines = report.split('\n')
+    for line in lines[2:6]:
+        parts = line.split()
+        class_id = int(parts[0])
+        precision = parts[1]
+        recall = parts[2]
+        f1_score = parts[3]
+        support = parts[4]
+        latex_code += f"{class_names_dict[class_id]} & {precision} & {recall} & {f1_score} & {support} \\\\\n"
+
+    accuracy_line = lines[7].split()
+    macro_avg_line = lines[8].split()
+    weighted_avg_line = lines[9].split()
+
+    accuracy = accuracy_line[2]
+    macro_precision = macro_avg_line[2]
+    macro_recall = macro_avg_line[3]
+    macro_f1 = macro_avg_line[4]
+    macro_support = macro_avg_line[5]
+    weighted_precision = weighted_avg_line[2]
+    weighted_recall = weighted_avg_line[3]
+    weighted_f1 = weighted_avg_line[4]
+    weighted_support = weighted_avg_line[5]
+
+    latex_code += f"\\midrule\nDokładność & & & {accuracy} & {macro_support} \\\\\n"
+    latex_code += f"Średnia makro & {macro_precision} & {macro_recall} & {macro_f1} & {macro_support} \\\\\n"
+    latex_code += f"Średnia ważona & {weighted_precision} & {weighted_recall} & {weighted_f1} & {weighted_support} \\\\\n"
+    latex_code += "\\bottomrule\n\\end{tabular}\n\\end{table}"
+
+    return latex_code
