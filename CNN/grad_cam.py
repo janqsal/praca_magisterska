@@ -116,7 +116,6 @@ def VizGradCAM(model, image, interpolant=0.5, plot_results=True):
     Returns:
     Heatmap Array?
     """
-    # Sanity Check
     assert (
         interpolant > 0 and interpolant < 1
     ), "Heatmap Interpolation Must Be Between 0 - 1"
@@ -130,7 +129,6 @@ def VizGradCAM(model, image, interpolant=0.5, plot_results=True):
     img = np.expand_dims(original_img, axis=0)
     prediction = model.predict(img)
 
-    # Obtain Prediction Index
     prediction_idx = np.argmax(prediction)
 
     # Compute Gradient of Top Predicted Class
@@ -147,34 +145,26 @@ def VizGradCAM(model, image, interpolant=0.5, plot_results=True):
     # Obtain the Output from Shape [1 x H x W x CHANNEL] -> [H x W x CHANNEL]
     output = conv2d_out[0]
 
-    # Obtain Depthwise Mean
     weights = tf.reduce_mean(gradients[0], axis=(0, 1))
 
-    # Create a 7x7 Map for Aggregation
     activation_map = np.zeros(output.shape[0:2], dtype=np.float32)
 
-    # Multiply Weights with Every Layer
     for idx, weight in enumerate(weights):
         activation_map += weight * output[:, :, idx]
 
-    # Resize to Size of Image
     activation_map = cv2.resize(
         activation_map.numpy(), (original_img.shape[1], original_img.shape[0])
     )
 
-    # Ensure No Negative Numbers
     activation_map = np.maximum(activation_map, 0)
 
-    # Convert Class Activation Map to 0 - 255
     activation_map = (activation_map - activation_map.min()) / (
         activation_map.max() - activation_map.min()
     )
     activation_map = np.uint8(255 * activation_map)
 
-    # Convert to Heatmap
     heatmap = cv2.applyColorMap(activation_map, cv2.COLORMAP_JET)
 
-    # Superimpose Heatmap on Image Data
     original_img = np.uint8(
         (original_img - original_img.min())
         / (original_img.max() - original_img.min())
@@ -198,4 +188,34 @@ def VizGradCAM(model, image, interpolant=0.5, plot_results=True):
         plt.show()
     else:
         return cvt_heatmap
+
+def VizGradCAM_for_feature_map(model, img_array, interpolant=0.5, plot_results=False):
+    last_conv_layer = next(x for x in model.layers[::-1] if isinstance(x, tf.keras.layers.Conv2D))
+    grads_model = tf.keras.models.Model([model.inputs], [last_conv_layer.output, model.output])
+
+    with tf.GradientTape() as tape:
+        conv_outputs, predictions = grads_model(np.array([img_array]))
+        class_idx = np.argmax(predictions[0])
+        loss = predictions[:, class_idx]
+
+    grads = tape.gradient(loss, conv_outputs)[0]
+    pooled_grads = tf.reduce_mean(grads, axis=(0, 1))
+    cam = np.dot(conv_outputs[0], pooled_grads[..., tf.newaxis])
+    cam = cam[:, :, 0]
+
+    cam = (cam - np.min(cam)) / (np.max(cam) - np.min(cam))
+    cam = cv2.resize(cam, (img_array.shape[1], img_array.shape[0]))
+    heatmap = np.uint8(255 * cam)
+    heatmap = cv2.applyColorMap(heatmap, cv2.COLORMAP_JET)
+
+    superimposed_img = heatmap * interpolant + img_array * (1 - interpolant)
+    superimposed_img = np.clip(superimposed_img, 0, 255).astype(np.uint8)
+
+    if plot_results:
+        plt.imshow(superimposed_img)
+        plt.title('GradCAM')
+        plt.axis('off')
+        plt.show()
+
+    return superimposed_img
 
