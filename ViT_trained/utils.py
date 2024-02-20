@@ -23,11 +23,9 @@ def plot_confusion_matrix_percent(cm, classes, title='Macierz pomyłek (%)', fig
     plt.xticks(tick_marks, classes, rotation=45)
     plt.yticks(tick_marks, classes)
 
-    # Dodanie siatki
     plt.grid(which='minor', color='gray', linestyle='-', linewidth=0.2)
     plt.minorticks_on()
 
-    # Ustawienie linii siatki za tłem komórek (z-index)
     plt.gca().set_zorder(3)
 
     thresh = cm_percent.max() / 2.
@@ -35,7 +33,7 @@ def plot_confusion_matrix_percent(cm, classes, title='Macierz pomyłek (%)', fig
         plt.text(j, i, f"{cm_percent[i, j]:.2%}",
                  horizontalalignment="center",
                  color="white" if cm_percent[i, j] > thresh else "black",
-                 zorder=5)  # Ustawienie tekstu nad siatką (z-index)
+                 zorder=5)
 
     plt.tight_layout()
     plt.ylabel('Faktyczne etykiety')
@@ -48,11 +46,11 @@ def get_predictions_and_labels(model, data_loader, device):
     all_predictions = []
     all_labels = []
 
-    with torch.no_grad():  # Wyłączenie obliczeń gradientów
+    with torch.no_grad():
         for images, labels in data_loader:
             images, labels = images.to(device), labels.to(device)
             outputs = model(images)
-            logits = outputs.logits if hasattr(outputs, 'logits') else outputs  # Pobieranie logitów
+            logits = outputs.logits if hasattr(outputs, 'logits') else outputs
             _, predicted_labels = torch.max(logits, 1)
 
             all_predictions.extend(predicted_labels.cpu().numpy())
@@ -70,7 +68,6 @@ def evaluate_model(model, test_loader, device):
             images, labels = images.to(device), labels.to(device)
             outputs = model(images)
 
-            # Załóżmy, że model zwraca słownik z kluczem 'logits'
             logits = outputs['logits']
             _, predicted = torch.max(logits, 1)
 
