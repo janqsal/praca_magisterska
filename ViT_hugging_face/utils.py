@@ -52,11 +52,11 @@ def get_predictions_and_labels(model, data_loader, device):
     all_predictions = []
     all_labels = []
 
-    with torch.no_grad():  # Wyłączenie obliczeń gradientów
+    with torch.no_grad():
         for images, labels in data_loader:
             images, labels = images.to(device), labels.to(device)
             outputs = model(images)
-            logits = outputs.logits if hasattr(outputs, 'logits') else outputs  # Pobieranie logitów
+            logits = outputs.logits if hasattr(outputs, 'logits') else outputs
             _, predicted_labels = torch.max(logits, 1)
 
             all_predictions.extend(predicted_labels.cpu().numpy())
@@ -74,7 +74,6 @@ def evaluate_model(model, test_loader, device):
             images, labels = images.to(device), labels.to(device)
             outputs = model(images)
 
-            # Załóżmy, że model zwraca słownik z kluczem 'logits'
             logits = outputs['logits']
             _, predicted = torch.max(logits, 1)
 

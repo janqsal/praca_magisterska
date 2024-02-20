@@ -255,16 +255,13 @@ def display_feature_map_with_predictions_and_gradcam2(model, dataset, class_name
             break
 
     if image is not None:
-        # Przygotowanie obrazu do predykcji
         image_expanded = np.expand_dims(image, axis=0)
         prediction_scores = model.predict(image_expanded)
         predicted_index = np.argmax(prediction_scores[0])
         predicted_class = class_names[predicted_index]
 
-        # Generowanie GradCAM
         gradcam_img = VizGradCAM_for_feature_map(model, image, interpolant=0.5, plot_results=False)
 
-        # Wyświetlanie oryginalnego obrazu i GradCAM
         plt.figure(figsize=(12, 4))
         plt.subplot(1, 2, 1)
         plt.imshow(image)
@@ -277,16 +274,14 @@ def display_feature_map_with_predictions_and_gradcam2(model, dataset, class_name
         plt.axis('off')
         plt.show()
 
-        # Mapy cech dla warstw konwolucyjnych
         conv_layers = [layer for layer in model.layers if isinstance(layer, tf.keras.layers.Conv2D)]
         activation_model = Model(inputs=model.input, outputs=[layer.output for layer in conv_layers])
         feature_maps = activation_model.predict(image_expanded)
 
-        # Wyświetlanie ograniczonej liczby map cech dla wszystkich filtrów
         for layer_name, feature_map in zip([layer.name for layer in conv_layers], feature_maps):
             n_filters = feature_map.shape[-1]
-            n_filters = min(n_filters, 64)  # Ograniczenie do maksymalnie 64 filtrów
-            n_cols = 8  # Filtry w wierszu
+            n_filters = min(n_filters, 64)
+            n_cols = 8
             n_rows = n_filters // n_cols if n_filters % n_cols == 0 else (n_filters // n_cols) + 1
 
             plt.figure(figsize=(n_cols * 2, n_rows * 2))

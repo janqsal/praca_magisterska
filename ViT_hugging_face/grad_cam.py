@@ -56,7 +56,6 @@ def run_grad_cam_on_image(model: torch.nn.Module,
     with method(model=HuggingfaceToTensorModelWrapper(model),
                 target_layers=[target_layer],
                 reshape_transform=reshape_transform) as cam:
-        # Replicate the tensor for each of the categories we want to create Grad-CAM for:
         repeated_tensor = input_tensor[None, :].repeat(len(targets_for_gradcam), 1, 1, 1)
 
         batch_results = cam(input_tensor=repeated_tensor,
@@ -66,7 +65,6 @@ def run_grad_cam_on_image(model: torch.nn.Module,
             visualization = show_cam_on_image(np.float32(input_image) / 255,
                                               grayscale_cam,
                                               use_rgb=True)
-            # Make it weight less in the notebook:
             visualization = cv2.resize(visualization,
                                        (visualization.shape[1] // 2, visualization.shape[0] // 2))
             results.append(visualization)
@@ -81,43 +79,33 @@ def print_top_categories(model, img_tensor, top_k=5):
 
 def reshape_transform_vit_huggingface(x, img_size=224, patch_size=16):
 
-    # Obliczenie liczby łatek na bok obrazu
     n_patches_side = img_size // patch_size
 
-    # Pomijamy token klasy i zmieniamy kształt
     activations = x[:, 1:, :]
     activations = activations.view(activations.shape[0],
                                    n_patches_side, n_patches_side,
                                    activations.shape[2])
 
-    # Transpozycja do formatu CHW
     activations = activations.transpose(2, 3).transpose(1, 2)
     return activations
 
 def display_images_with_gradcam(model, dataset, reshape_transform, num_classes, method, method_name, image_size=(224, 224),
                                 custom_labels=None):
-    # Automatyczne określenie warstwy docelowej dla Grad-CAM
     target_layer_gradcam = model.vit.encoder.layer[-2].output
 
     for class_id in range(num_classes):
-        # Zbierz wszystkie obrazy należące do aktualnej klasy
         class_images = [(image, label) for image, label in dataset if label == class_id]
 
-        # Jeśli nie ma obrazów dla klasy, kontynuuj pętlę
         if not class_images:
             continue
 
-        # Wybierz losowy obraz dla klasy
         image, label = random.choice(class_images)
 
-        # Przeskaluj obraz do odpowiedniego rozmiaru
         image_resized = image.resize(image_size)
         tensor_resized = transforms.ToTensor()(image_resized)
 
-        # Ustawienie celów dla Grad-CAM
         targets_for_gradcam = [ClassifierOutputTarget(class_id)]
 
-        # Uruchomienie Grad-CAM
         grad_cam_result = run_grad_cam_on_image(model=model,
                                                 target_layer=target_layer_gradcam,
                                                 targets_for_gradcam=targets_for_gradcam,
